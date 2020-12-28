@@ -1,0 +1,171 @@
+﻿
+@{
+	ViewBag.Title = "Formation";
+}
+
+<div class="contact-header" id="content">
+	<div class="container text-center">
+		<h1 style="max-width:100%">Formation</h1>
+		<p style="max-width:100%">Record your voice by clicking on 'Record Audio Media' Button</p>
+	</div>
+</div>
+
+
+<div class="container text-center mt-4">
+	<div id="timer" style="font-size:50px;margin:10px 0px 10px 0px">
+		<span class="h1" id="hours">00:</span>
+		<span class="h1" id="mins">00:</span>
+		<span class="h1" id="seconds">00</span>
+	</div>
+	<button class="btn btn-primary" id="start-recording" onclick="startRecording()">Record Audio Media</button>
+	<button class="btn btn-default" id="stop-recording" disabled onclick="stopRecording()">Stop</button>
+	<button class="btn btn-default" id="download-recording" disabled onclick="downloadRecording()">Download</button>
+	<button class="btn btn-default" id="save-recording" disabled>Save</button>
+	<button class="btn btn-default" style="display: none;" id="update-recording" onclick="updateRecording()">Update</button>
+	<button class="btn btn-danger" style="display: none;" id="delete-recording" onclick="resetRecording()">Delete</button>
+
+	<div style="margin-top:10px" id="record-audio"></div>
+</div>
+
+
+@section scripts {
+
+	<script type="text/javascript">
+
+		var mediaConstraints = {
+			audio: true
+		};
+		var hours = 0;
+		var mins = 0;
+		var seconds = 0;
+		timex = null;
+
+		function startRecording(idx) {
+			resetTimer();
+			startTimer();
+			$('#start-recording').hide();
+			audiosContainer = document.getElementById('audios-container');
+			captureUserMedia(mediaConstraints, onMediaSuccess, onMediaError);
+		};
+
+		function captureUserMedia(mediaConstraints, successCallback, errorCallback) {
+			navigator.mediaDevices.getUserMedia(mediaConstraints).then(successCallback).catch(errorCallback);
+		}
+
+		function stopRecording() {
+			clearTimeout(timex);
+			$('#stop-recording').hide();
+			$('#update-recording').show();
+			$('#delete-recording').show();
+
+			mediaRecorder.stop();
+			mediaRecorder.stream.stop();
+		};
+
+		function downloadRecording() {
+			mediaRecorder.save();
+		};
+
+		var mediaRecorder;
+
+		function onMediaSuccess(stream) {
+			mediaRecorder = new MediaStreamRecorder(stream);
+			mediaRecorder.stream = stream;
+			mediaRecorder.mimeType = 'audio/wav';
+			mediaRecorder.audioChannels = 1;
+			mediaRecorder.ondataavailable = function (blob) {
+				$('#record-audio').html("<audio controls=''><source src=" + URL.createObjectURL(blob) + "></source></audio>");
+
+				document.getElementById('download-recording').disabled = false;
+
+				document.getElementById('save-recording').disabled = false;
+
+				document.getElementById("save-recording").addEventListener("click", function () {
+					saveFile(blob);
+				});
+			};
+
+			var timeInterval = 360 * 1000;
+
+			mediaRecorder.start(timeInterval);
+
+			$('#stop-recording').prop("disabled", false);
+		}
+
+		function resetRecording() {
+			resetTimer();
+			$('#stop-recording').prop("disabled", true);
+			$('#download-recording').prop("disabled", true);
+			$('#save-recording').prop("disabled", true);
+			$('#start-recording').show();
+			$('#stop-recording').show();
+			$('#update-recording').hide();
+			$('#delete-recording').hide();
+
+			mediaRecorder = null;
+			$('#record-audio').html("");
+		}
+
+		// Update Recording will reset the old recording & start new recording
+		function updateRecording() {
+			resetRecording();
+			startRecording();
+		}
+
+		// Passing Recorded Audio Blob as POST request to Formation/Save Controller
+		function saveFile(blob) {
+			console.log('Hii I am Save File FN');
+			var fd = new FormData();
+			var filename = new Date().toISOString();
+			fd.append("audio_data", blob, filename);
+			makeXMLHttpRequest('/Formation/Save', fd);
+		}
+
+		// FN to make saveFile POST request
+		function makeXMLHttpRequest(url, data) {
+			var request = new XMLHttpRequest();
+			request.open('POST', url);
+			request.send(data);
+		}
+
+		// Call back on recording failed
+		function onMediaError(e) {
+			console.error('media error', e);
+		}
+
+		function startTimer() {
+			timex = setTimeout(function () {
+				seconds++;
+				if (seconds > 59) {
+					seconds = 0; mins++;
+					if (mins > 59) {
+						mins = 0; hours++;
+						if (hours < 10) { $("#hours").text('0' + hours + ':') } else $("#hours").text(hours + ':');
+					}
+
+					if (mins < 10) {
+						$("#mins").text('0' + mins + ':');
+					}
+					else $("#mins").text(mins + ':');
+				}
+				if (seconds < 10) {
+					$("#seconds").text('0' + seconds);
+				} else {
+					$("#seconds").text(seconds);
+				}
+
+
+				startTimer();
+			}, 1000);
+		}
+
+		function resetTimer() {
+			hours = 0; mins = 0; seconds = 0;
+			$('#hours', '#mins').html('00:');
+			$('#seconds').html('00');
+		}
+
+	</script>
+
+}
+
